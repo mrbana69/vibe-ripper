@@ -18,25 +18,18 @@ export async function findExactTrack(csvRow: CsvRow): Promise<Track | null> {
   const searchResponse = await searchTracks(query);
 
   const expectedDuration = parseInt(csvRow['Duration (ms)'], 10);
-  const expectedAlbum = csvRow['Album Name'].toLowerCase().trim();
   const expectedTrack = csvRow['Track Name'].toLowerCase().trim();
   const expectedArtists = csvRow['Artist Name(s)'].split(',').map(a => a.toLowerCase().trim());
 
   // Filter for matches with relaxed criteria
   const matches = searchResponse.data.items.filter(track => {
     const trackTitle = track.title.toLowerCase().trim();
-    const albumTitle = track.album.title.toLowerCase().trim();
     const trackArtists = track.artists.map(a => a.name.toLowerCase().trim());
-    const durationDiff = Math.abs(track.duration - expectedDuration);
 
     // Check if track title is similar (contains the expected title or vice versa)
     const titleMatch = trackTitle.includes(expectedTrack) || expectedTrack.includes(trackTitle) ||
                       // Also check for very close matches (allowing for minor differences)
                       levenshteinDistance(trackTitle, expectedTrack) <= 2;
-
-    // Check if album is similar
-    const albumMatch = albumTitle.includes(expectedAlbum) || expectedAlbum.includes(albumTitle) ||
-                      levenshteinDistance(albumTitle, expectedAlbum) <= 2;
 
     // Check if artists match (at least one artist should match significantly)
     const artistMatch = expectedArtists.some(expectedArtist =>
@@ -45,9 +38,6 @@ export async function findExactTrack(csvRow: CsvRow): Promise<Track | null> {
         levenshteinDistance(trackArtist, expectedArtist) <= 2
       )
     );
-
-    // Duration should be within 10 seconds (10000 ms) for more flexibility
-    const durationMatch = durationDiff <= 10000;
 
     // Require title + artist match (album optional for flexibility)
     return titleMatch && artistMatch;
