@@ -372,13 +372,13 @@ function sanitizeFileName(fileName: string): string {
 
 // --- Spotify Integration ---
 
-const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '';
 const SPOTIFY_REDIRECT_URI = `${window.location.origin}/spotify-callback`;
 const SPOTIFY_SCOPES = 'user-read-private user-read-email user-library-read playlist-read-private playlist-read-collaborative';
 
 export async function initiateSpotifyLogin() {
-  if (!SPOTIFY_CLIENT_ID) {
-    alert('Spotify Client ID is missing. Please set VITE_SPOTIFY_CLIENT_ID in your .env file.');
+  const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
+  if (!clientId) {
+    alert('Spotify Client ID is missing. Please ensure VITE_SPOTIFY_CLIENT_ID is in your .env file and RESTART the server.');
     return;
   }
 
@@ -389,7 +389,7 @@ export async function initiateSpotifyLogin() {
   
   const params = new URLSearchParams({
     response_type: 'code',
-    client_id: SPOTIFY_CLIENT_ID,
+    client_id: clientId,
     scope: SPOTIFY_SCOPES,
     redirect_uri: SPOTIFY_REDIRECT_URI,
     code_challenge_method: 'S256',
@@ -400,6 +400,7 @@ export async function initiateSpotifyLogin() {
 }
 
 export async function handleSpotifyCallback(code: string) {
+  const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
   const codeVerifier = localStorage.getItem('spotify_code_verifier');
   if (!codeVerifier) throw new Error('No code verifier found');
 
@@ -409,7 +410,7 @@ export async function handleSpotifyCallback(code: string) {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: new URLSearchParams({
-      client_id: SPOTIFY_CLIENT_ID,
+      client_id: clientId || '',
       grant_type: 'authorization_code',
       code,
       redirect_uri: SPOTIFY_REDIRECT_URI,
