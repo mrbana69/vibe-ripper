@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import type { SearchResponse, AlbumResponse, TrackManifestResponse, LosslessManifest, ArtistProfileResponse, CsvRow } from '../types/api';
+import type { SearchResponse, AlbumResponse, TrackManifestResponse, LosslessManifest, ArtistProfileResponse, CsvRow, SpotifyUserProfile, SpotifyTrack, SpotifyPlaylist, SpotifySavedTrack } from '../types/api';
 import type { Track } from '../types/api';
 
 const API_BASE_URL = 'https://wolf.qqdl.site';
@@ -368,4 +368,165 @@ export async function downloadAlbum(
 
 function sanitizeFileName(fileName: string): string {
   return fileName.replace(/[<>:"/\\|?*]/g, '_').trim();
+}
+
+// --- Spotify Integration ---
+
+const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '';
+const SPOTIFY_REDIRECT_URI = `${window.location.origin}/spotify-callback`;
+const SPOTIFY_SCOPES = 'user-read-private user-read-email user-library-read playlist-read-private playlist-read-collaborative';
+
+export async function initiateSpotifyLogin() {
+  if (!SPOTIFY_CLIENT_ID) {
+    alert('Spotify Client ID is missing. Please set VITE_SPOTIFY_CLIENT_ID in your .env file.');
+    return;
+  }
+
+  const codeVerifier = generateRandomString(128);
+  const codeChallenge = await generateCodeChallenge(codeVerifier);
+  
+  localStorage.setItem('spotify_code_verifier', codeVerifier);
+  
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: SPOTIFY_CLIENT_ID,
+    scope: SPOTIFY_SCOPES,
+    redirect_uri: SPOTIFY_REDIRECT_URI,
+    code_challenge_method: 'S256',
+    code_challenge: codeChallenge,
+  });
+
+  window.location.href = `https://accounts.spotify.com/authorize?${params.toString()}`;
+}
+
+export async function handleSpotifyCallback(code: string) {
+  const codeVerifier = localStorage.getItem('spotify_code_verifier');
+  if (!codeVerifier) throw new Error('No code verifier found');
+
+  const response = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      client_id: SPOTIFY_CLIENT_ID,
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: SPOTIFY_REDIRECT_URI,
+      code_verifier: codeVerifier,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to exchange code for token');
+  }
+
+  const data = await response.json();
+  localStorage.setItem('spotify_access_token', data.access_token);
+  localStorage.setItem('spotify_refresh_token', data.refresh_token);
+}
+
+async function getSpotifyToken() {
+  return localStorage.getItem('spotify_access_token');
+}
+
+async function fetchSpotify(endpoint: string) {
+  const token = await getSpotifyToken();
+  if (!token) throw new Error('No Spotify token found');
+
+  const response = await fetch(`https://api.spotify.com/v1${endpoint}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (response.status === 401) {
+    localStorage.removeItem('spotify_access_token');
+    throw new Error('Spotify token expired');
+  }
+
+  if (!response.ok) {
+    throw new Error(`Spotify API error: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function getSpotifyUserProfile(): Promise<SpotifyUserProfile> {
+  return fetchSpotify('/me');
+}
+
+export async function getSpotifyLikedSongs(): Promise<SpotifyTrack[]> {
+  // Fetching first 50 for now. Pagination would be needed for full library.
+  const data = await fetchSpotify('/me/tracks?limit=50');
+  return data.items.map((item: SpotifySavedTrack) => item.track);
+}
+
+export async function getSpotifyPlaylists(): Promise<SpotifyPlaylist[]> {
+  const data = await fetchSpotify('/me/playlists?limit=50');
+  return data.items;
+}
+
+export async function getSpotifyPlaylistTracks(playlistId: string): Promise<SpotifyTrack[]> {
+  const data = await fetchSpotify(`/playlists/${playlistId}/tracks?limit=50`);
+  return data.items.map((item: { track: SpotifyTrack }) => item.track);
+}
+
+export async function findSpotifyTrack(spotifyTrack: SpotifyTrack): Promise<Track | null> {
+  const query = `${spotifyTrack.name} ${spotifyTrack.artists[0]?.name || ''}`;
+  try {
+    const searchResponse = await searchTracks(query);
+    
+    const expectedDuration = spotifyTrack.duration_ms;
+    const expectedTrack = spotifyTrack.name.toLowerCase().trim();
+    const expectedArtists = spotifyTrack.artists.map(a => a.name.toLowerCase().trim());
+
+    const matches = searchResponse.data.items.filter(track => {
+      const trackTitle = track.title.toLowerCase().trim();
+      const trackArtists = track.artists.map(a => a.name.toLowerCase().trim());
+
+      const titleMatch = trackTitle.includes(expectedTrack) || expectedTrack.includes(trackTitle) ||
+                        levenshteinDistance(trackTitle, expectedTrack) <= 2;
+
+      const artistMatch = expectedArtists.some(expectedArtist =>
+        trackArtists.some(trackArtist =>
+          trackArtist.includes(expectedArtist) || expectedArtist.includes(trackArtist) ||
+          levenshteinDistance(trackArtist, expectedArtist) <= 2
+        )
+      );
+
+      return titleMatch && artistMatch;
+    });
+
+    if (matches.length === 0) return null;
+    if (matches.length === 1) return matches[0];
+
+    return matches.reduce((best, current) => {
+      const bestDiff = Math.abs(best.duration - expectedDuration);
+      const currentDiff = Math.abs(current.duration - expectedDuration);
+      return currentDiff < bestDiff ? current : best;
+    });
+  } catch (e) {
+    console.error('Error finding spotify track', e);
+    return null;
+  }
+}
+
+function generateRandomString(length: number) {
+  let text = '';
+  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  for (let i = 0; i < length; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
+  return text;
+}
+
+async function generateCodeChallenge(codeVerifier: string) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(codeVerifier);
+  const digest = await window.crypto.subtle.digest('SHA-256', data);
+  return btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
 }

@@ -3,6 +3,7 @@ import SearchPage from './pages/SearchPage';
 import AlbumPage from './pages/AlbumPage';
 import ArtistPage from './pages/ArtistPage';
 import CsvDownloadPage from './pages/CsvDownloadPage';
+import SpotifyPage from './pages/SpotifyPage';
 
 function App() {
   return (
@@ -13,6 +14,8 @@ function App() {
           <Route path="/album/:id" element={<AlbumPage />} />
           <Route path="/artist/:id" element={<ArtistPage />} />
           <Route path="/csv-download" element={<CsvDownloadPage />} />
+          <Route path="/spotify" element={<SpotifyPage />} />
+          <Route path="/spotify-callback" element={<SpotifyPage />} />
         </Routes>
       </div>
     </Router>

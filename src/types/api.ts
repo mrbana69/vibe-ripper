@@ -197,3 +197,50 @@ export interface CsvRow {
   'Tempo': string;
   'Time Signature': string;
 }
+
+export interface SpotifyImage {
+  url: string;
+  height: number;
+  width: number;
+}
+
+export interface SpotifyUserProfile {
+  id: string;
+  display_name: string;
+  email: string;
+  images: SpotifyImage[];
+}
+
+export interface SpotifyArtist {
+  id: string;
+  name: string;
+}
+
+export interface SpotifyAlbum {
+  id: string;
+  name: string;
+  images: SpotifyImage[];
+}
+
+export interface SpotifyTrack {
+  id: string;
+  name: string;
+  artists: SpotifyArtist[];
+  album: SpotifyAlbum;
+  duration_ms: number;
+}
+
+export interface SpotifyPlaylist {
+  id: string;
+  name: string;
+  images: SpotifyImage[];
+  tracks: {
+    href: string;
+    total: number;
+  };
+}
+
+export interface SpotifySavedTrack {
+  added_at: string;
+  track: SpotifyTrack;
+}

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Music, Download, Album as AlbumIcon, Clock, Sparkles, Play } from 'lucide-react';
+import { Search, Music, Download, Album as AlbumIcon, Clock, Sparkles, Play, FileText } from 'lucide-react';
 import { searchTracks, downloadTrack } from '../services/api';
 import { formatDuration, getArtworkUrl } from '../utils/format';
 import ArtistLinks from '../components/ArtistLinks';
@@ -94,6 +94,26 @@ function SearchPage() {
                 Muzik
               </h1>
             </motion.div>
+            <div className="flex items-center gap-3">
+              <motion.button
+                onClick={() => navigate('/csv-download')}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 font-medium text-sm flex items-center gap-2 hover:bg-gray-200 transition-colors"
+              >
+                <FileText className="w-4 h-4" />
+                <span className="hidden sm:inline">CSV Import</span>
+              </motion.button>
+              <motion.button
+                onClick={() => navigate('/spotify')}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-4 py-2 rounded-xl bg-[#1DB954] text-white font-medium text-sm flex items-center gap-2 hover:bg-[#1ed760] transition-colors shadow-sm"
+              >
+                <Music className="w-4 h-4" />
+                <span className="hidden sm:inline">Spotify</span>
+              </motion.button>
+            </div>
           </div>
         </div>
       </motion.header>
