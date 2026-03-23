@@ -2,7 +2,7 @@ import JSZip from 'jszip';
 import type { SearchResponse, AlbumResponse, TrackManifestResponse, LosslessManifest, ArtistProfileResponse, CsvRow, SpotifyUserProfile, SpotifyTrack, SpotifyPlaylist, SpotifySavedTrack } from '../types/api';
 import type { Track } from '../types/api';
 
-const API_BASE_URL = 'https://wolf.qqdl.site';
+const API_BASE_URL = 'https://triton.squid.wtf';
 
 export async function searchTracks(query: string): Promise<SearchResponse> {
   const response = await fetch(`${API_BASE_URL}/search/?s=${encodeURIComponent(query)}`);
